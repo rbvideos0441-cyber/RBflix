@@ -1,0 +1,92 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Primitive Helpers
+    function isSignedIn() { return request.auth != null; }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    
+    // Admin check - Bootstrapped with user email
+    function isAdmin() { 
+      return isSignedIn() && (
+        request.auth.token.email == 'robsonbatista3@gmail.com' && request.auth.token.email_verified == true
+      );
+    }
+
+    // 1. Users Collection
+    match /users/{userId} {
+      function isValidUser(data) {
+        return data.keys().hasAll(['uid', 'email'])
+          && data.uid == request.auth.uid 
+          && data.email is string && data.email.size() > 0 && data.email.size() <= 200
+          && (!data.keys().hasAny(['subscriptionPlan']) || data.subscriptionPlan in ['basic', 'standard', 'premium']);
+      }
+
+      allow list: if isAdmin();
+      allow get: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) && isValidUser(incoming()) && incoming().createdAt == request.time;
+      allow update: if (isOwner(userId) && isValidUser(incoming()) && incoming().diff(existing()).affectedKeys().hasOnly(['email', 'subscriptionPlan', 'subscriptionStatus'])) || isAdmin();
+
+      // 2. Profiles (Subcollection)
+      match /profiles/{profileId} {
+        function isValidProfile(data) {
+          return data.keys().hasAll(['name', 'avatarUrl'])
+            && data.name is string && data.name.size() > 0 && data.name.size() <= 50
+            && data.avatarUrl is string && data.avatarUrl.size() > 0 && data.avatarUrl.size() <= 1000;
+        }
+
+        allow list: if isOwner(userId) || isAdmin();
+        allow get: if isOwner(userId) || isAdmin();
+        allow create: if isOwner(userId) && isValidProfile(incoming()) && incoming().createdAt == request.time;
+        allow update: if (isOwner(userId) && isValidProfile(incoming()) && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'avatarUrl', 'language', 'isChild'])) || isAdmin();
+        allow delete: if isOwner(userId) || isAdmin();
+
+        // 3. Watch History
+        match /watchHistory/{historyId} {
+          function isValidHistory(data) {
+            return data.keys().hasAll(['mediaId', 'progressSeconds'])
+              && data.mediaId is string && isValidId(data.mediaId)
+              && data.progressSeconds is number && data.progressSeconds >= 0
+              && (!data.keys().hasAny(['genres']) || data.genres is list);
+          }
+
+          allow list: if isOwner(userId);
+          allow get: if isOwner(userId);
+          allow create, update: if isOwner(userId) && isValidHistory(incoming()) && incoming().lastWatched == request.time;
+          allow delete: if isOwner(userId);
+        }
+
+        // 4. Favorites
+        match /favorites/{favoriteId} {
+          allow list: if isOwner(userId);
+          allow create: if isOwner(userId) && incoming().mediaId is string && isValidId(incoming().mediaId);
+          allow delete: if isOwner(userId);
+        }
+      }
+    }
+
+    // 5. Movies and Series
+    match /movies/{movieId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin(); 
+    }
+
+    match /series/{seriesId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // 6. Application Settings
+    match /settings/{settingId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+  }
+}

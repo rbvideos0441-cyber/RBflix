@@ -1,0 +1,91 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // 1. Users Collection
+    match /users/{userId} {
+      function isValidUser(data) {
+        return data.uid == request.auth.uid 
+          && data.email is string 
+          && data.email.size() > 0
+          && (!data.keys().hasAny(['subscriptionPlan']) || data.subscriptionPlan in ['basic', 'standard', 'premium']);
+      }
+
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUser(incoming()) && incoming().createdAt == request.time;
+      // Users shouldn't be able to change their own plan/status via client SDK (theoretically)
+      // For this demo, we'll allow it only if they are the owner, but ideally this is handled by backend + stripe
+      allow update: if isOwner(userId) && isValidUser(incoming());
+
+      // 2. Profiles (Subcollection)
+      match /profiles/{profileId} {
+        function isValidProfile(data) {
+          return data.name is string && data.name.size() > 0 && data.name.size() <= 50
+            && data.avatarUrl is string && data.avatarUrl.size() > 0;
+        }
+
+        allow list: if isOwner(userId);
+        allow get: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidProfile(incoming()) && incoming().createdAt == request.time;
+        allow update: if isOwner(userId) && isValidProfile(incoming()) && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'avatarUrl', 'language', 'isChild']);
+        allow delete: if isOwner(userId);
+
+        // 3. Watch History
+        match /watchHistory/{historyId} {
+          function isValidHistory(data) {
+            return data.mediaId is string && isValidId(data.mediaId)
+              && data.progressSeconds is number && data.progressSeconds >= 0;
+          }
+
+          allow list: if isOwner(userId);
+          allow get: if isOwner(userId);
+          allow create, update: if isOwner(userId) && isValidHistory(incoming()) && incoming().lastWatched == request.time;
+          allow delete: if isOwner(userId);
+        }
+
+        // 4. Favorites
+        match /favorites/{favoriteId} {
+          allow list: if isOwner(userId);
+          allow create: if isOwner(userId) && incoming().mediaId is string;
+          allow delete: if isOwner(userId);
+        }
+      }
+    }
+
+    // 5. Movies and Series
+    match /movies/{movieId} {
+      allow read: if isSignedIn();
+      allow write: if false; // Only via Admin/Console
+    }
+
+    match /series/{seriesId} {
+      allow read: if isSignedIn();
+      allow write: if false; // Only via Admin/Console
+    }
+  }
+}

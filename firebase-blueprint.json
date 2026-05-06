@@ -1,0 +1,115 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "System user information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "subscriptionPlan": { "type": "string", "enum": ["basic", "standard", "premium"] },
+        "subscriptionStatus": { "type": "string", "enum": ["active", "canceled", "incomplete"] },
+        "stripeCustomerId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email"]
+    },
+    "Profile": {
+      "title": "Profile",
+      "description": "User profiles within an account",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "avatarUrl": { "type": "string" },
+        "isChild": { "type": "boolean" },
+        "language": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "avatarUrl"]
+    },
+    "Movie": {
+      "title": "Movie",
+      "description": "Movie or episode metadata",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "thumbnailUrl": { "type": "string" },
+        "hlsUrl": { "type": "string" },
+        "duration": { "type": "number" },
+        "year": { "type": "number" },
+        "rating": { "type": "string" },
+        "genres": { "type": "array", "items": { "type": "string" } },
+        "cast": { "type": "array", "items": { "type": "string" } },
+        "trending": { "type": "boolean" },
+        "popular": { "type": "boolean" },
+        "isSeries": { "type": "boolean" },
+        "seriesId": { "type": "string" },
+        "season": { "type": "number" },
+        "episode": { "type": "number" }
+      },
+      "required": ["title", "hlsUrl", "thumbnailUrl"]
+    },
+    "Series": {
+      "title": "Series",
+      "description": "Series metadata",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "thumbnailUrl": { "type": "string" },
+        "genres": { "type": "array", "items": { "type": "string" } },
+        "totalSeasons": { "type": "number" }
+      },
+      "required": ["title"]
+    },
+    "WatchHistory": {
+      "title": "WatchHistory",
+      "description": "Progress tracking for a profile on a specific media",
+      "type": "object",
+      "properties": {
+        "mediaId": { "type": "string" },
+        "progressSeconds": { "type": "number" },
+        "lastWatched": { "type": "string", "format": "date-time" },
+        "completed": { "type": "boolean" }
+      },
+      "required": ["mediaId", "progressSeconds"]
+    },
+    "Favorite": {
+      "title": "Favorite",
+      "description": "User's My List items",
+      "type": "object",
+      "properties": {
+        "mediaId": { "type": "string" },
+        "addedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["mediaId"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Main user collection"
+    },
+    "/users/{userId}/profiles/{profileId}": {
+      "schema": "Profile",
+      "description": "Profiles for each user"
+    },
+    "/movies/{movieId}": {
+      "schema": "Movie",
+      "description": "Movies and episodes"
+    },
+    "/series/{seriesId}": {
+      "schema": "Series",
+      "description": "Series grouping"
+    },
+    "/users/{userId}/profiles/{profileId}/watchHistory/{historyId}": {
+      "schema": "WatchHistory",
+      "description": "Progress tracking per profile"
+    },
+    "/users/{userId}/profiles/{profileId}/favorites/{favoriteId}": {
+      "schema": "Favorite",
+      "description": "My List per profile"
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "name": "StreamNexus",
+  "description": "A high-performance, Netflix-inspired streaming platform featuring multi-profile support, real-time HLS video streaming, and content management.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "Video Streaming",
+    "User Profiles",
+    "Content Management"
+  ]
+}
