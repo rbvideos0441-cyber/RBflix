@@ -91,7 +91,7 @@ export default function Admin() {
 
   const fetchMovies = async () => {
     try {
-      const q = query(collection(db, "movies"), where("isSeries", "==", false), orderBy("createdAt", "desc"));
+      const q = query(collection(db, "movies"), where("isSeries", "==", false));
       const snapshot = await getDocs(q);
       setMoviesList(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     } catch (err) {
@@ -101,7 +101,7 @@ export default function Admin() {
 
   const fetchEpisodes = async () => {
     try {
-      const q = query(collection(db, "movies"), where("isSeries", "==", true), orderBy("createdAt", "desc"));
+      const q = query(collection(db, "movies"), where("isSeries", "==", true));
       const snapshot = await getDocs(q);
       setEpisodesList(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     } catch (err) {
@@ -166,6 +166,10 @@ export default function Admin() {
 
   const handleEpisodeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!episodeData.seriesId) {
+      alert("Por favor, selecione uma série.");
+      return;
+    }
     setLoading(true);
     try {
       const parentSeries = seriesList.find(s => s.id === episodeData.seriesId);
@@ -178,21 +182,25 @@ export default function Admin() {
         genres: parentSeries?.genres || [],
         year: (parentSeries as any)?.year || new Date().getFullYear(),
         rating: (parentSeries as any)?.rating || "PG-13",
-        createdAt: serverTimestamp()
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
       };
 
       if (editingId) {
          await movieService.updateMovie(editingId, finalData);
+         console.log("Episode updated:", editingId);
       } else {
-        await addDoc(collection(db, "movies"), finalData);
+        const docRef = await addDoc(collection(db, "movies"), finalData);
+        console.log("Episode added with ID:", docRef.id);
       }
+      
       setSuccess(true);
-      fetchEpisodes();
+      await fetchEpisodes();
       resetForms();
       setTimeout(() => setSuccess(false), 3000);
-    } catch (err) {
-      console.error(err);
-      alert("Erro ao salvar episódio.");
+    } catch (err: any) {
+      console.error("Error saving episode:", err);
+      alert(`Erro ao salvar episódio: ${err.message || 'Erro desconhecido'}`);
     } finally {
       setLoading(false);
     }
@@ -750,45 +758,76 @@ export default function Admin() {
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {tab === "episode" ? (
-              // Grouped episodes view
-              seriesList.map(series => {
-                const seriesEpisodes = episodesList.filter(ep => ep.seriesId === series.id);
-                if (seriesEpisodes.length === 0) return null;
-                return (
-                  <div key={series.id} className="col-span-full space-y-4">
-                    <h3 className="text-xl font-bold text-netflix-red flex items-center gap-2">
-                       <Tv className="w-5 h-5" /> {series.title}
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {seriesEpisodes.sort((a, b) => (a.season - b.season) || (a.episode - b.episode)).map((item: any) => (
-                        <div key={item.id} className="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden flex flex-col group">
-                          <div className="relative aspect-video">
-                            <img src={item.thumbnailUrl} alt={item.title} className="w-full h-full object-cover" />
-                            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
-                              <button 
-                                onClick={() => startEditEpisode(item)}
-                                className="p-3 bg-white text-black rounded-full hover:bg-zinc-200 transition"
-                              >
-                                <Pencil className="w-5 h-5" />
-                              </button>
-                              <button 
-                                onClick={() => handleDelete(item.id, "movie")}
-                                className="p-3 bg-netflix-red text-white rounded-full hover:bg-red-700 transition"
-                              >
-                                <Trash2 className="w-5 h-5" />
-                              </button>
+              <div className="space-y-12">
+                {/* Grouped by series */}
+                {seriesList.map(series => {
+                  const seriesEpisodes = episodesList.filter(ep => ep.seriesId === series.id);
+                  if (seriesEpisodes.length === 0) return null;
+                  return (
+                    <div key={series.id} className="space-y-4">
+                      <h3 className="text-xl font-bold text-netflix-red flex items-center gap-2">
+                         <Tv className="w-5 h-5" /> {series.title}
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {seriesEpisodes.sort((a, b) => (a.season - b.season) || (a.episode - b.episode)).map((item: any) => (
+                          <div key={item.id} className="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden flex flex-col group">
+                            <div className="relative aspect-video">
+                              <img src={item.thumbnailUrl} alt={item.title} className="w-full h-full object-cover" />
+                              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
+                                <button 
+                                  onClick={() => startEditEpisode(item)}
+                                  className="p-3 bg-white text-black rounded-full hover:bg-zinc-200 transition"
+                                >
+                                  <Pencil className="w-5 h-5" />
+                                </button>
+                                <button 
+                                  onClick={() => handleDelete(item.id, "movie")}
+                                  className="p-3 bg-netflix-red text-white rounded-full hover:bg-red-700 transition"
+                                >
+                                  <Trash2 className="w-5 h-5" />
+                                </button>
+                              </div>
+                            </div>
+                            <div className="p-4 flex-1">
+                              <p className="text-xs text-netflix-red font-bold uppercase mb-1">T{item.season} : E{item.episode}</p>
+                              <h3 className="font-bold text-lg line-clamp-1">{item.title}</h3>
                             </div>
                           </div>
-                          <div className="p-4 flex-1">
-                            <p className="text-xs text-netflix-red font-bold uppercase mb-1">P{item.season} : E{item.episode}</p>
-                            <h3 className="font-bold text-lg line-clamp-1">{item.title}</h3>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* Orphan episodes (without a series) */}
+                {episodesList.filter(ep => !seriesList.find(s => s.id === ep.seriesId)).length > 0 && (
+                  <div className="space-y-4 pt-8 border-t border-zinc-800">
+                    <h3 className="text-xl font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-2">
+                       <ShieldAlert className="w-5 h-5" /> episódios sem série vinculada
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {episodesList.filter(ep => !seriesList.find(s => s.id === ep.seriesId)).map((item: any) => (
+                        <div key={item.id} className="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden flex flex-col group border-red-900/30">
+                          <div className="p-4">
+                            <h3 className="font-bold text-lg">{item.title}</h3>
+                            <p className="text-xs text-zinc-500 mt-1 truncate">Série-ID: {item.seriesId}</p>
+                            <div className="mt-4 flex gap-2">
+                              <button onClick={() => startEditEpisode(item)} className="text-xs bg-zinc-800 hover:bg-zinc-700 px-3 py-1 rounded">Editar</button>
+                              <button onClick={() => handleDelete(item.id, "movie")} className="text-xs bg-red-900/20 text-red-500 hover:bg-red-900/40 px-3 py-1 rounded">Excluir</button>
+                            </div>
                           </div>
                         </div>
                       ))}
                     </div>
                   </div>
-                );
-              })
+                )}
+
+                {episodesList.length === 0 && (
+                  <div className="py-20 text-center text-zinc-500 border border-dashed border-zinc-800 rounded-lg">
+                    Nenhum episódio encontrado.
+                  </div>
+                )}
+              </div>
             ) : (
               (tab === "movie" ? moviesList : seriesList).map((item: any) => (
                 <div key={item.id} className="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden flex flex-col group">

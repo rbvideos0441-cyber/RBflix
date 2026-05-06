@@ -15,9 +15,7 @@ service cloud.firestore {
     
     // Admin check - Bootstrapped with user email
     function isAdmin() { 
-      return isSignedIn() && (
-        request.auth.token.email == 'robsonbatista3@gmail.com' && request.auth.token.email_verified == true
-      );
+      return isSignedIn() && request.auth.token.email == 'robsonbatista3@gmail.com';
     }
 
     // 1. Users Collection
