@@ -102,8 +102,18 @@ export default function Login() {
             disabled={loading}
             className="w-full bg-netflix-red py-3 rounded font-bold hover:bg-red-700 transition disabled:opacity-50"
           >
-            {loading ? "Processando..." : (isRegistering ? "Registrar" : "Entrar")}
+            {loading ? "Processando..." : (isRegistering ? "Registrar agora" : "Entrar")}
           </button>
+          
+          {!isRegistering && (
+            <button
+              type="button"
+              onClick={() => setIsRegistering(true)}
+              className="w-full bg-zinc-800/50 py-3 rounded font-bold hover:bg-zinc-800 transition mt-2 text-sm border border-zinc-700"
+            >
+              Criar uma nova conta
+            </button>
+          )}
         </form>
 
         <div className="flex items-center gap-4 my-6 opacity-50">
@@ -123,12 +133,13 @@ export default function Login() {
         
         <div className="mt-8 text-zinc-500">
           {isRegistering ? "Já tem uma conta?" : "Novo no StreamNexus?"} 
-          <span 
-            className="text-white hover:underline cursor-pointer ml-1"
+          <button 
+            type="button"
+            className="text-white font-bold hover:underline cursor-pointer ml-1"
             onClick={() => setIsRegistering(!isRegistering)}
           >
-            {isRegistering ? "Entrar agora." : "Assine agora."}
-          </span>
+            {isRegistering ? "Fazer login." : "Criar uma conta agora."}
+          </button>
         </div>
         
         <p className="mt-4 text-xs text-zinc-400">
