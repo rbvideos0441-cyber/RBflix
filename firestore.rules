@@ -23,13 +23,14 @@ service cloud.firestore {
       function isValidUser(data) {
         return data.keys().hasAll(['uid', 'email'])
           && data.uid == request.auth.uid 
-          && data.email is string && data.email.size() > 0 && data.email.size() <= 200
-          && (!data.keys().hasAny(['subscriptionPlan']) || data.subscriptionPlan in ['basic', 'standard', 'premium']);
+          && data.email is string && data.email.size() <= 200
+          && (!data.keys().hasAny(['subscriptionPlan']) || data.subscriptionPlan in ['basic', 'standard', 'premium'])
+          && (!data.keys().hasAny(['subscriptionStatus']) || data.subscriptionStatus in ['active', 'canceled', 'incomplete', 'active']);
       }
 
       allow list: if isAdmin();
       allow get: if isOwner(userId) || isAdmin();
-      allow create: if isOwner(userId) && isValidUser(incoming()) && incoming().createdAt == request.time;
+      allow create: if isOwner(userId) && isValidUser(incoming()) && (incoming().createdAt == request.time || !incoming().keys().hasAny(['createdAt']));
       allow update: if (isOwner(userId) && isValidUser(incoming()) && incoming().diff(existing()).affectedKeys().hasOnly(['email', 'subscriptionPlan', 'subscriptionStatus'])) || isAdmin();
 
       // 2. Profiles (Subcollection)
