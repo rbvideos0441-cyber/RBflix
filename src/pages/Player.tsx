@@ -39,6 +39,58 @@ export default function Player() {
   }, [isPlaying, showEpisodes]);
 
   useEffect(() => {
+  const handleRemote = (e: KeyboardEvent) => {
+    if (!videoRef.current) return;
+
+    switch (e.key) {
+      case "ArrowLeft":
+        e.preventDefault();
+        setShowControls(true);
+        resetControlsTimer();
+        videoRef.current.currentTime = Math.max(
+          0,
+          videoRef.current.currentTime - 10
+        );
+        break;
+
+      case "ArrowRight":
+        e.preventDefault();
+        setShowControls(true);
+        resetControlsTimer();
+        videoRef.current.currentTime = Math.min(
+          videoRef.current.duration || 0,
+          videoRef.current.currentTime + 10
+        );
+        break;
+
+      case "ArrowUp":
+      case "ArrowDown":
+        e.preventDefault();
+        setShowControls(true);
+        resetControlsTimer();
+        break;
+
+      case "Enter":
+        e.preventDefault();
+        togglePlay();
+        break;
+
+      case "Backspace":
+      case "Escape":
+        e.preventDefault();
+        navigate("/");
+        break;
+    }
+  };
+
+  window.addEventListener("keydown", handleRemote);
+
+  return () => {
+    window.removeEventListener("keydown", handleRemote);
+  };
+}, [isPlaying, showEpisodes, navigate]);
+
+  useEffect(() => {
     const handleActivity = () => resetControlsTimer();
     window.addEventListener("mousemove", handleActivity);
     window.addEventListener("keydown", handleActivity);
@@ -120,22 +172,27 @@ export default function Player() {
   }, [movie]);
 
   const togglePlay = () => {
-    if (videoRef.current) {
-      if (videoRef.current.paused) {
-        const playPromise = videoRef.current.play();
-        if (playPromise !== undefined) {
-          playPromise
-            .then(() => setIsPlaying(true))
-            .catch((error) => {
-              console.error("Erro ao iniciar reprodução:", error);
-            });
-        }
-      } else {
-        videoRef.current.pause();
-        setIsPlaying(false);
+  if (videoRef.current) {
+    if (videoRef.current.paused) {
+      const playPromise = videoRef.current.play();
+
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            setIsPlaying(true);
+            videoRef.current?.focus();
+            resetControlsTimer();
+          })
+          .catch((error) => {
+            console.error("Erro ao iniciar reprodução:", error);
+          });
       }
+    } else {
+      videoRef.current.pause();
+      setIsPlaying(false);
     }
-  };
+  }
+};
 
   const handleTimeUpdate = () => {
     if (videoRef.current) {
@@ -212,13 +269,18 @@ export default function Player() {
       )}
     >
       <video
-        ref={videoRef}
-        className="w-full h-full object-contain cursor-pointer"
-        onClick={togglePlay}
-        onTimeUpdate={handleTimeUpdate}
-        onPlay={() => setIsPlaying(true)}
-        onPause={() => setIsPlaying(false)}
-      />
+  ref={videoRef}
+  tabIndex={0}
+  className="w-full h-full object-contain cursor-pointer"
+  onClick={togglePlay}
+  onTimeUpdate={handleTimeUpdate}
+  onPlay={() => {
+    setIsPlaying(true);
+    videoRef.current?.focus();
+    resetControlsTimer();
+  }}
+  onPause={() => setIsPlaying(false)}
+/>
 
       {/* Overlays */}
       <div className={cn(
